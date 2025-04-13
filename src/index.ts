@@ -8,11 +8,44 @@ import answersRoute from './routes/answers';
 import userQuizResultsRoute from './routes/userQuizResults';
 import drivingLessonsRoute from './routes/drivingLessons';
 import lessonContentsRoute from './routes/lessonContents';
-import videoTutorialsRoute from './routes/videoTutorials'; // Correct import
-
+import videoTutorialsRoute from './routes/videoTutorials';
+import rulesRoutes from './routes/rules';
 
 const app = express();
 
+// Swagger configuration
+const swaggerOptions = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'Drives Academy API',
+      version: '1.0.0',
+      description: 'API documentation for Drives Academy application',
+    },
+    servers: [
+      {
+        url: 'http://localhost:3000',
+        description: 'Development server',
+      },
+    ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        },
+      },
+    },
+  },
+  apis: ['./src/routes/*.ts', './src/index.ts'], // Path to the API docs
+};
+
+const swaggerDocs = swaggerJsdoc(swaggerOptions);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
+
+// Middleware
+app.use(express.json());
 
 /**
  * @swagger
@@ -73,9 +106,46 @@ const app = express();
 /**
  * @swagger
  * tags:
- *   name: VideoTutorials
- *   description: API for managing video tutorials
+ *   name: Rules
+ *   description: API for managing rules categories and content
  */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     RulesCategory:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: integer
+ *         title:
+ *           type: string
+ *         created_at:
+ *           type: string
+ *           format: date-time
+ *         updated_at:
+ *           type: string
+ *           format: date-time
+ *     RulesContent:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: integer
+ *         category_id:
+ *           type: integer
+ *         title:
+ *           type: string
+ *         content:
+ *           type: string
+ *         created_at:
+ *           type: string
+ *           format: date-time
+ *         updated_at:
+ *           type: string
+ *           format: date-time
+ */
+
 /**
  * @swagger
  * /users/register:
@@ -574,28 +644,7 @@ const app = express();
  *         description: Error creating answer
  */
 
-const swaggerDefinition = {
-  info: {
-    title: 'Drives Academy API',
-    version: '1.0.0',
-  },
-  servers: [
-     {
-       url: 'http://localhost:3001',
-     },
-  ],
-};
-
-const swaggerSpec = swaggerJsdoc({
-  swaggerDefinition,
-  apis: ['./src/index.ts', './src/routes/*.ts'],
-});
-
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-
-
-app.use(express.json());
-app.use('/users', usersRoute); 
+app.use('/users', usersRoute);
 app.use('/quizzes', quizzesRoute);
 app.use('/questions', questionsRoute);
 app.use('/answers', answersRoute);
@@ -603,10 +652,270 @@ app.use('/user-quiz-results', userQuizResultsRoute);
 app.use('/driving-lessons', drivingLessonsRoute);
 app.use('/lesson-contents', lessonContentsRoute);
 app.use('/video-tutorials', videoTutorialsRoute);
-// Use correct route path
-app.use('/video-tutorials', videoTutorialsRoute);
+app.use('/api/rules', rulesRoutes);
+
 const port = parseInt(process.env.PORT || '3001');
 app.listen(port, () => {
   console.log(`listening on port ${port}`);
 });
+
+/**
+ * @swagger
+ * /api/rules/categories:
+ *   post:
+ *     summary: Create a new rules category
+ *     tags: [Rules]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Rules category created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/RulesCategory'
+ *       500:
+ *         description: Error creating rules category
+ *   get:
+ *     summary: Get all rules categories
+ *     tags: [Rules]
+ *     responses:
+ *       200:
+ *         description: Rules categories fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/RulesCategory'
+ *       500:
+ *         description: Error fetching rules categories
+ */
+
+/**
+ * @swagger
+ * /api/rules/categories/{id}:
+ *   get:
+ *     summary: Get rules category by ID
+ *     tags: [Rules]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: ID of the rules category
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Rules category fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/RulesCategory'
+ *       404:
+ *         description: Rules category not found
+ *       500:
+ *         description: Error fetching rules category
+ *   put:
+ *     summary: Update rules category
+ *     tags: [Rules]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: ID of the rules category to update
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Rules category updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/RulesCategory'
+ *       404:
+ *         description: Rules category not found
+ *       500:
+ *         description: Error updating rules category
+ *   delete:
+ *     summary: Delete rules category
+ *     tags: [Rules]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: ID of the rules category to delete
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Rules category deleted successfully
+ *       404:
+ *         description: Rules category not found
+ *       500:
+ *         description: Error deleting rules category
+ */
+
+/**
+ * @swagger
+ * /api/rules/content:
+ *   post:
+ *     summary: Create new rules content
+ *     tags: [Rules]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               category_id:
+ *                 type: integer
+ *               title:
+ *                 type: string
+ *               content:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Rules content created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/RulesContent'
+ *       500:
+ *         description: Error creating rules content
+ *   get:
+ *     summary: Get all rules content
+ *     tags: [Rules]
+ *     responses:
+ *       200:
+ *         description: Rules content fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/RulesContent'
+ *       500:
+ *         description: Error fetching rules content
+ */
+
+/**
+ * @swagger
+ * /api/rules/content/{id}:
+ *   get:
+ *     summary: Get rules content by ID
+ *     tags: [Rules]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: ID of the rules content
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Rules content fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/RulesContent'
+ *       404:
+ *         description: Rules content not found
+ *       500:
+ *         description: Error fetching rules content
+ *   put:
+ *     summary: Update rules content
+ *     tags: [Rules]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: ID of the rules content to update
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               category_id:
+ *                 type: integer
+ *               title:
+ *                 type: string
+ *               content:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Rules content updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/RulesContent'
+ *       404:
+ *         description: Rules content not found
+ *       500:
+ *         description: Error updating rules content
+ *   delete:
+ *     summary: Delete rules content
+ *     tags: [Rules]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: ID of the rules content to delete
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Rules content deleted successfully
+ *       404:
+ *         description: Rules content not found
+ *       500:
+ *         description: Error deleting rules content
+ */
+
+/**
+ * @swagger
+ * /api/rules/categories/{categoryId}/content:
+ *   get:
+ *     summary: Get all rules content for a category
+ *     tags: [Rules]
+ *     parameters:
+ *       - in: path
+ *         name: categoryId
+ *         required: true
+ *         description: ID of the rules category
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Rules content fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/RulesContent'
+ *       500:
+ *         description: Error fetching rules content
+ */
 

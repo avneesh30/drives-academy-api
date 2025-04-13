@@ -1,11 +1,11 @@
 // src/routes/answers.ts
-import express, { Request, Response } from 'express';
+import express, { Request, Response, Router } from 'express';
 import knex from '../db';
 
-const router = express.Router();
+const router: Router = express.Router();
 
 // Create Answer
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const { question_id, answer_text, is_correct } = req.body;
     const [newAnswer] = await knex('answers')
@@ -19,9 +19,9 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // Get All Answers
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
-    const answers = await knex('answers').select('id', 'question_id', 'answer_text', 'is_correct', 'created_at', 'updated_at');
+    const answers = await knex('answers').select('*');
     res.json(answers);
   } catch (error) {
     console.error(error);
@@ -30,15 +30,13 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // Get Answer by ID
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const answer = await knex('answers')
-      .select('id', 'question_id', 'answer_text', 'is_correct', 'created_at', 'updated_at')
-      .where({ id })
-      .first();
+    const answer = await knex('answers').where({ id }).first();
     if (!answer) {
-      return res.status(404).json({ message: 'Answer not found' });
+      res.status(404).json({ message: 'Answer not found' });
+      return;
     }
     res.json(answer);
   } catch (error) {
@@ -62,13 +60,14 @@ router.get('/questions/:questionId/answers', async (req: Request, res: Response)
 });
 
 // Update Answer
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const { question_id, answer_text, is_correct } = req.body;
     const existingAnswer = await knex('answers').where({ id }).first();
     if (!existingAnswer) {
-      return res.status(404).json({ message: 'Answer not found' });
+      res.status(404).json({ message: 'Answer not found' });
+      return;
     }
     const [updatedAnswer] = await knex('answers')
       .where({ id })
@@ -82,12 +81,13 @@ router.put('/:id', async (req: Request, res: Response) => {
 });
 
 // Delete Answer
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const existingAnswer = await knex('answers').where({ id }).first();
     if (!existingAnswer) {
-      return res.status(404).json({ message: 'Answer not found' });
+      res.status(404).json({ message: 'Answer not found' });
+      return;
     }
     await knex('answers').where({ id }).del();
     res.json({ message: 'Answer deleted successfully' });

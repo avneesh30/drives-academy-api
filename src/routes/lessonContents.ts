@@ -1,17 +1,17 @@
 // src/routes/lessonContents.ts
-import express, { Request, Response } from 'express';
+import express, { Request, Response, Router } from 'express';
 import knex from '../db';
 
-const router = express.Router();
+const router: Router = express.Router();
 
 // Create Lesson Content
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { driving_lesson_id, title, content, order } = req.body;
-    const [newLessonContent] = await knex('lesson_contents')
-      .insert({ driving_lesson_id, title, content, order })
-      .returning(['id', 'driving_lesson_id', 'title', 'content', 'order', 'created_at', 'updated_at']);
-    res.status(201).json(newLessonContent);
+    const { lesson_id, content_type, content, order } = req.body;
+    const [newContent] = await knex('lesson_contents')
+      .insert({ lesson_id, content_type, content, order })
+      .returning(['id', 'lesson_id', 'content_type', 'content', 'order', 'created_at', 'updated_at']);
+    res.status(201).json(newContent);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error creating lesson content' });
@@ -19,10 +19,10 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // Get All Lesson Contents
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
-    const lessonContents = await knex('lesson_contents').select('id', 'driving_lesson_id', 'title', 'content', 'order', 'created_at', 'updated_at');
-    res.json(lessonContents);
+    const contents = await knex('lesson_contents').select('*');
+    res.json(contents);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error fetching lesson contents' });
@@ -30,17 +30,15 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // Get Lesson Content by ID
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const lessonContent = await knex('lesson_contents')
-      .select('id', 'driving_lesson_id', 'title', 'content', 'order', 'created_at', 'updated_at')
-      .where({ id })
-      .first();
-    if (!lessonContent) {
-      return res.status(404).json({ message: 'Lesson content not found' });
+    const content = await knex('lesson_contents').where({ id }).first();
+    if (!content) {
+      res.status(404).json({ message: 'Lesson content not found' });
+      return;
     }
-    res.json(lessonContent);
+    res.json(content);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error fetching lesson content' });
@@ -62,19 +60,20 @@ router.get('/driving-lessons/:drivingLessonId/lesson-contents', async (req: Requ
 });
 
 // Update Lesson Content
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { driving_lesson_id, title, content, order } = req.body;
-    const existingLessonContent = await knex('lesson_contents').where({ id }).first();
-    if (!existingLessonContent) {
-      return res.status(404).json({ message: 'Lesson content not found' });
+    const { lesson_id, content_type, content, order } = req.body;
+    const existingContent = await knex('lesson_contents').where({ id }).first();
+    if (!existingContent) {
+      res.status(404).json({ message: 'Lesson content not found' });
+      return;
     }
-    const [updatedLessonContent] = await knex('lesson_contents')
+    const [updatedContent] = await knex('lesson_contents')
       .where({ id })
-      .update({ driving_lesson_id, title, content, order })
-      .returning(['id', 'driving_lesson_id', 'title', 'content', 'order', 'created_at', 'updated_at']);
-    res.json(updatedLessonContent);
+      .update({ lesson_id, content_type, content, order })
+      .returning(['id', 'lesson_id', 'content_type', 'content', 'order', 'created_at', 'updated_at']);
+    res.json(updatedContent);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error updating lesson content' });
@@ -82,12 +81,13 @@ router.put('/:id', async (req: Request, res: Response) => {
 });
 
 // Delete Lesson Content
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const existingLessonContent = await knex('lesson_contents').where({ id }).first();
-    if (!existingLessonContent) {
-      return res.status(404).json({ message: 'Lesson content not found' });
+    const existingContent = await knex('lesson_contents').where({ id }).first();
+    if (!existingContent) {
+      res.status(404).json({ message: 'Lesson content not found' });
+      return;
     }
     await knex('lesson_contents').where({ id }).del();
     res.json({ message: 'Lesson content deleted successfully' });
