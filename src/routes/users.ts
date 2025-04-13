@@ -244,7 +244,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
  *       500:
  *         description: Error fetching user
  */
-router.get('/:id', async (req: Request, res: Response): Promise<void> => {
+router.get('/:id', authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
 
@@ -328,7 +328,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
  *       500:
  *         description: Error updating user
  */
-router.put('/:id', async (req: Request, res: Response): Promise<void> => {
+router.put('/:id', authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const { name, surname, email, password } = req.body;
@@ -388,7 +388,7 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
  *       500:
  *         description: Error deleting user
  */
-router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
+router.delete('/:id', authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
 

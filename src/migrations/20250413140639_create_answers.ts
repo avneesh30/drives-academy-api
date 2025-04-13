@@ -8,6 +8,9 @@ export async function up(knex: Knex): Promise<void> {
       table.foreign('question_id').references('id').inTable('questions').onDelete('CASCADE');
       table.text('answer_text').notNullable();
       table.boolean('is_correct').notNullable().defaultTo(false);
+      table.string('image_url').nullable();
+      table.integer('order').notNullable().defaultTo(0);
+      table.boolean('is_active').notNullable().defaultTo(true);
       table.timestamp('created_at').defaultTo(knex.fn.now());
       table.timestamp('updated_at').defaultTo(knex.fn.now());
     });

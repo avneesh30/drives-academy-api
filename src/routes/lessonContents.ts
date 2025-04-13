@@ -1,8 +1,12 @@
 // src/routes/lessonContents.ts
 import express, { Request, Response, Router } from 'express';
 import knex from '../db';
+import { authenticateToken } from '../middleware/auth';
 
 const router: Router = express.Router();
+
+// All routes require authentication
+router.use(authenticateToken);
 
 // Create Lesson Content
 router.post('/', async (req: Request, res: Response): Promise<void> => {

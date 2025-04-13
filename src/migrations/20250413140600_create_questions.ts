@@ -7,6 +7,10 @@ export async function up(knex: Knex): Promise<void> {
       table.integer('quiz_id').unsigned().notNullable();
       table.foreign('quiz_id').references('id').inTable('quizzes').onDelete('CASCADE');
       table.text('question_text').notNullable();
+      table.text('explanation').nullable();
+      table.string('image_url').nullable();
+      table.integer('points').notNullable().defaultTo(1);
+      table.boolean('is_active').notNullable().defaultTo(true);
       table.timestamp('created_at').defaultTo(knex.fn.now());
       table.timestamp('updated_at').defaultTo(knex.fn.now());
     });

@@ -1,9 +1,16 @@
-import express, { Request, Response, Router } from 'express';
+import express, { Request, Response, Router, RequestHandler } from 'express';
 import knex from '../db';
-const router: Router = express.Router();/**
+import { authenticateToken } from '../middleware/auth';
+
+const router: Router = express.Router();
+
+// All routes require authentication
+router.use(authenticateToken);
+
+/**
  * @swagger
  * tags:
- *   name: UserQuizResults
+ *   name: User Quiz Results
  *   description: API for managing user quiz results
  */
 
@@ -11,14 +18,22 @@ const router: Router = express.Router();/**
  * @swagger
  * /user-quiz-results:
  *   post:
- *     summary: Create a new user quiz result
- *     tags: [UserQuizResults]
+ *     summary: Create a new quiz result
+ *     tags: [User Quiz Results]
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - user_id
+ *               - quiz_id
+ *               - score
+ *               - correct_answer_count
+ *               - incorrect_answer_count
+ *               - started_at
+ *               - completed_at
  *             properties:
  *               user_id:
  *                 type: integer
@@ -26,53 +41,176 @@ const router: Router = express.Router();/**
  *                 type: integer
  *               score:
  *                 type: integer
- *               total_questions:
+ *               total_points:
  *                 type: integer
- *               correct_answers:
+ *               correct_answer_count:
  *                 type: integer
+ *               incorrect_answer_count:
+ *                 type: integer
+ *               time_taken_seconds:
+ *                 type: integer
+ *               is_passed:
+ *                 type: boolean
+ *               question_answers:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *               started_at:
+ *                 type: string
+ *                 format: date-time
+ *               completed_at:
+ *                 type: string
+ *                 format: date-time
  *     responses:
  *       201:
  *         description: Quiz result created successfully
+ *       400:
+ *         description: Invalid input data
  *       500:
- *         description: Error creating quiz result
+ *         description: Server error
+ */
+router.post('/', (async (req: Request, res: Response): Promise<void> => {
+  try {
+    const {
+      user_id,
+      quiz_id,
+      score,
+      total_points,
+      correct_answer_count,
+      incorrect_answer_count,
+      time_taken_seconds,
+      is_passed,
+      question_answers,
+      started_at,
+      completed_at
+    } = req.body;
+
+    if (!user_id || !quiz_id || !score || !correct_answer_count || !incorrect_answer_count || !started_at || !completed_at) {
+      res.status(400).json({ message: 'Missing required fields' });
+      return;
+    }
+
+    const [result] = await knex('user_quiz_results')
+      .insert({
+        user_id,
+        quiz_id,
+        score,
+        total_points,
+        correct_answer_count,
+        incorrect_answer_count,
+        time_taken_seconds,
+        is_passed,
+        question_answers: JSON.stringify(question_answers || []),
+        started_at,
+        completed_at
+      })
+      .returning('*');
+
+    res.status(201).json(result);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error creating quiz result' });
+  }
+}) as RequestHandler);
+
+/**
+ * @swagger
+ * /user-quiz-results:
  *   get:
  *     summary: Get all quiz results
- *     tags: [UserQuizResults]
+ *     tags: [User Quiz Results]
+ *     parameters:
+ *       - in: query
+ *         name: user_id
+ *         schema:
+ *           type: integer
+ *         description: Filter by user ID
+ *       - in: query
+ *         name: quiz_id
+ *         schema:
+ *           type: integer
+ *         description: Filter by quiz ID
+ *       - in: query
+ *         name: is_passed
+ *         schema:
+ *           type: boolean
+ *         description: Filter by pass status
  *     responses:
  *       200:
- *         description: Quiz results fetched successfully
+ *         description: List of quiz results
  *       500:
- *         description: Error fetching quiz results
+ *         description: Server error
  */
+router.get('/', (async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { user_id, quiz_id, is_passed } = req.query;
+    let query = knex('user_quiz_results').select('*');
+
+    if (user_id) {
+      query = query.where('user_id', user_id);
+    }
+    if (quiz_id) {
+      query = query.where('quiz_id', quiz_id);
+    }
+    if (is_passed !== undefined) {
+      query = query.where('is_passed', is_passed === 'true');
+    }
+
+    const results = await query;
+    res.json(results);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error fetching quiz results' });
+  }
+}) as RequestHandler);
 
 /**
  * @swagger
  * /user-quiz-results/{id}:
  *   get:
  *     summary: Get quiz result by ID
- *     tags: [UserQuizResults]
+ *     tags: [User Quiz Results]
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         description: ID of the quiz result
  *         schema:
  *           type: integer
  *     responses:
  *       200:
- *         description: Quiz result fetched successfully
+ *         description: Quiz result details
  *       404:
  *         description: Quiz result not found
  *       500:
- *         description: Error fetching quiz result
+ *         description: Server error
+ */
+router.get('/:id', (async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const result = await knex('user_quiz_results').where({ id }).first();
+
+    if (!result) {
+      res.status(404).json({ message: 'Quiz result not found' });
+      return;
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error fetching quiz result' });
+  }
+}) as RequestHandler);
+
+/**
+ * @swagger
+ * /user-quiz-results/{id}:
  *   put:
- *     summary: Update quiz result
- *     tags: [UserQuizResults]
+ *     summary: Update a quiz result
+ *     tags: [User Quiz Results]
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         description: ID of the quiz result to update
  *         schema:
  *           type: integer
  *     requestBody:
@@ -88,25 +226,92 @@ const router: Router = express.Router();/**
  *                 type: integer
  *               score:
  *                 type: integer
- *               total_questions:
+ *               total_points:
  *                 type: integer
- *               correct_answers:
+ *               correct_answer_count:
  *                 type: integer
+ *               incorrect_answer_count:
+ *                 type: integer
+ *               time_taken_seconds:
+ *                 type: integer
+ *               is_passed:
+ *                 type: boolean
+ *               question_answers:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *               started_at:
+ *                 type: string
+ *                 format: date-time
+ *               completed_at:
+ *                 type: string
+ *                 format: date-time
  *     responses:
  *       200:
  *         description: Quiz result updated successfully
  *       404:
  *         description: Quiz result not found
  *       500:
- *         description: Error updating quiz result
+ *         description: Server error
+ */
+router.put('/:id', (async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const {
+      user_id,
+      quiz_id,
+      score,
+      total_points,
+      correct_answer_count,
+      incorrect_answer_count,
+      time_taken_seconds,
+      is_passed,
+      question_answers,
+      started_at,
+      completed_at
+    } = req.body;
+
+    const existingResult = await knex('user_quiz_results').where({ id }).first();
+    if (!existingResult) {
+      res.status(404).json({ message: 'Quiz result not found' });
+      return;
+    }
+
+    const [updatedResult] = await knex('user_quiz_results')
+      .where({ id })
+      .update({
+        user_id,
+        quiz_id,
+        score,
+        total_points,
+        correct_answer_count,
+        incorrect_answer_count,
+        time_taken_seconds,
+        is_passed,
+        question_answers: JSON.stringify(question_answers || []),
+        started_at,
+        completed_at,
+        updated_at: knex.fn.now()
+      })
+      .returning('*');
+
+    res.json(updatedResult);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error updating quiz result' });
+  }
+}) as RequestHandler);
+
+/**
+ * @swagger
+ * /user-quiz-results/{id}:
  *   delete:
- *     summary: Delete quiz result
- *     tags: [UserQuizResults]
+ *     summary: Delete a quiz result
+ *     tags: [User Quiz Results]
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         description: ID of the quiz result to delete
  *         schema:
  *           type: integer
  *     responses:
@@ -115,140 +320,24 @@ const router: Router = express.Router();/**
  *       404:
  *         description: Quiz result not found
  *       500:
- *         description: Error deleting quiz result
+ *         description: Server error
  */
-
-/**
- * @swagger
- * /user-quiz-results/users/{userId}:
- *   get:
- *     summary: Get quiz results by user ID
- *     tags: [UserQuizResults]
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         description: ID of the user
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: Quiz results fetched successfully
- *       500:
- *         description: Error fetching quiz results for user
- */
-
-/**
- * @swagger
- * /user-quiz-results/quizzes/{quizId}:
- *   get:
- *     summary: Get quiz results by quiz ID
- *     tags: [UserQuizResults]
- *     parameters:
- *       - in: path
- *         name: quizId
- *         required: true
- *         description: ID of the quiz
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: Quiz results fetched successfully
- *       500:
- *         description: Error fetching quiz results for quiz
- */
-router.post('/', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { user_id, quiz_id, score, total_questions, correct_answers } = req.body;
-    const [newResult] = await knex('user_quiz_results')
-      .insert({ user_id, quiz_id, score, total_questions, correct_answers })
-      .returning(['id', 'user_id', 'quiz_id', 'score', 'total_questions', 'correct_answers', 'created_at', 'updated_at']);
-    res.status(201).json(newResult);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error creating quiz result' });
-  }
-});
-router.get('/', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const results = await knex('user_quiz_results').select('*');
-    res.json(results);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error fetching quiz results' });
-  }
-});
-router.get('/:id', async (req: Request, res: Response): Promise<void> => {
+router.delete('/:id', (async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const result = await knex('user_quiz_results').where({ id }).first();
-    if (!result) {
-      res.status(404).json({ message: 'Quiz result not found' });
-      return;
-    }
-    res.json(result);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error fetching quiz result' });
-  }
-});
-router.get('/users/:userId/user-quiz-results', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { userId } = req.params;
-    const userQuizResults = await knex('user_quiz_results')
-      .select('id', 'user_id', 'quiz_id', 'score', 'correct_answer_count', 'incorrect_answer_count', 'completed_at', 'created_at', 'updated_at')
-      .where({ user_id: userId });
-    res.json(userQuizResults);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error fetching user quiz results for user' });
-  }
-});
-router.get('/quizzes/:quizId/user-quiz-results', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { quizId } = req.params;
-    const userQuizResults = await knex('user_quiz_results')
-      .select('id', 'user_id', 'quiz_id', 'score', 'correct_answer_count', 'incorrect_answer_count', 'completed_at', 'created_at', 'updated_at')
-      .where({ quiz_id: quizId });
-    res.json(userQuizResults);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error fetching user quiz results for quiz' });
-  }
-});
-router.put('/:id', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const { user_id, quiz_id, score, total_questions, correct_answers } = req.body;
     const existingResult = await knex('user_quiz_results').where({ id }).first();
+
     if (!existingResult) {
       res.status(404).json({ message: 'Quiz result not found' });
       return;
     }
-    const [updatedResult] = await knex('user_quiz_results')
-      .where({ id })
-      .update({ user_id, quiz_id, score, total_questions, correct_answers })
-      .returning(['id', 'user_id', 'quiz_id', 'score', 'total_questions', 'correct_answers', 'created_at', 'updated_at']);
-    res.json(updatedResult);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error updating quiz result' });
-  }
-});
-router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const existingResult = await knex('user_quiz_results').where({ id }).first();
-    if (!existingResult) {
-      res.status(404).json({ message: 'Quiz result not found' });
-      return;
-    }
+
     await knex('user_quiz_results').where({ id }).del();
     res.json({ message: 'Quiz result deleted successfully' });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error deleting quiz result' });
   }
-});
+}) as RequestHandler);
 
 export default router;
