@@ -1,7 +1,7 @@
 // src/routes/quizzes.ts
-import express, { Request, Response, Router, RequestHandler } from 'express';
-import knex from '../db';
-import { authenticateToken } from '../middleware/auth';
+import express, { Request, Response, Router, RequestHandler } from "express";
+import { db } from "../db";
+import { authenticateToken } from "../middleware/auth";
 
 const router: Router = express.Router();
 
@@ -66,7 +66,7 @@ router.post('/', (async (req: Request, res: Response): Promise<void> => {
       category,
       time_limit_minutes = 30,
       passing_score = 70,
-      number_of_questions
+      number_of_questions,
     } = req.body;
 
     if (!title || !difficulty || !category || !number_of_questions) {
@@ -74,7 +74,7 @@ router.post('/', (async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const [quiz] = await knex('quizzes')
+    const [quiz] = await db('quizzes')
       .insert({
         title,
         description,
@@ -83,7 +83,7 @@ router.post('/', (async (req: Request, res: Response): Promise<void> => {
         time_limit_minutes,
         passing_score,
         number_of_questions,
-        is_active: true
+        is_active: true,
       })
       .returning('*');
 
@@ -125,7 +125,7 @@ router.post('/', (async (req: Request, res: Response): Promise<void> => {
 router.get('/', (async (req: Request, res: Response): Promise<void> => {
   try {
     const { category, difficulty, is_active } = req.query;
-    let query = knex('quizzes').select('*');
+    let query = db('quizzes').select('*');
 
     if (category) {
       query = query.where('category', category);
@@ -168,7 +168,7 @@ router.get('/', (async (req: Request, res: Response): Promise<void> => {
 router.get('/:id', (async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const quiz = await knex('quizzes').where({ id }).first();
+    const quiz = await db('quizzes').where({ id }).first();
 
     if (!quiz) {
       res.status(404).json({ message: 'Quiz not found' });
@@ -236,16 +236,16 @@ router.put('/:id', (async (req: Request, res: Response): Promise<void> => {
       time_limit_minutes,
       passing_score,
       number_of_questions,
-      is_active
+      is_active,
     } = req.body;
 
-    const existingQuiz = await knex('quizzes').where({ id }).first();
+    const existingQuiz = await db('quizzes').where({ id }).first();
     if (!existingQuiz) {
       res.status(404).json({ message: 'Quiz not found' });
       return;
     }
 
-    const [updatedQuiz] = await knex('quizzes')
+    const [updatedQuiz] = await db('quizzes')
       .where({ id })
       .update({
         title,
@@ -256,7 +256,7 @@ router.put('/:id', (async (req: Request, res: Response): Promise<void> => {
         passing_score,
         number_of_questions,
         is_active,
-        updated_at: knex.fn.now()
+        updated_at: db.fn.now(),
       })
       .returning('*');
 
@@ -290,14 +290,14 @@ router.put('/:id', (async (req: Request, res: Response): Promise<void> => {
 router.delete('/:id', (async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const existingQuiz = await knex('quizzes').where({ id }).first();
+    const existingQuiz = await db('quizzes').where({ id }).first();
 
     if (!existingQuiz) {
       res.status(404).json({ message: 'Quiz not found' });
       return;
     }
 
-    await knex('quizzes').where({ id }).del();
+    await db('quizzes').where({ id }).del();
     res.json({ message: 'Quiz deleted successfully' });
   } catch (error) {
     console.error(error);

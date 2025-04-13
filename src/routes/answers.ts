@@ -1,11 +1,11 @@
 // src/routes/answers.ts
-import express, { Request, Response, Router } from 'express';
-import knex from '../db';
-import { authenticateToken } from '../middleware/auth';
+import express, { Request, Response } from "express";
+import { authenticateToken } from "../middleware/auth";
+import { db } from "../db";
 
-const router: Router = express.Router();
+const router = express.Router();
 
-// All routes require authentication
+// Apply authentication middleware to all routes
 router.use(authenticateToken);
 
 /**
@@ -66,16 +66,23 @@ router.use(authenticateToken);
  *       500:
  *         description: Error creating answer
  */
-router.post('/', async (req: Request, res: Response): Promise<void> => {
+router.post("/", async (req: Request, res: Response) => {
   try {
     const { question_id, answer_text, is_correct } = req.body;
-    const [newAnswer] = await knex('answers')
+    const [newAnswer] = await db("answers")
       .insert({ question_id, answer_text, is_correct })
-      .returning(['id', 'question_id', 'answer_text', 'is_correct', 'created_at', 'updated_at']);
+      .returning([
+        "id",
+        "question_id",
+        "answer_text",
+        "is_correct",
+        "created_at",
+        "updated_at",
+      ]);
     res.status(201).json(newAnswer);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error creating answer' });
+    res.status(500).json({ message: "Error creating answer" });
   }
 });
 
@@ -112,13 +119,13 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
  *       500:
  *         description: Error fetching answers
  */
-router.get('/', async (req: Request, res: Response): Promise<void> => {
+router.get("/", async (req: Request, res: Response) => {
   try {
-    const answers = await knex('answers').select('*');
+    const answers = await db("answers").select("*");
     res.json(answers);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error fetching answers' });
+    res.status(500).json({ message: "Error fetching answers" });
   }
 });
 
@@ -126,7 +133,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
  * @swagger
  * /answers/{id}:
  *   get:
- *     summary: Get answer by ID
+ *     summary: Get a specific answer
  *     tags: [Answers]
  *     parameters:
  *       - in: path
@@ -134,10 +141,9 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
  *         required: true
  *         schema:
  *           type: integer
- *         description: Answer ID
  *     responses:
  *       200:
- *         description: Answer found
+ *         description: Answer details
  *         content:
  *           application/json:
  *             schema:
@@ -162,18 +168,17 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
  *       500:
  *         description: Error fetching answer
  */
-router.get('/:id', async (req: Request, res: Response): Promise<void> => {
+router.get("/:id", async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const answer = await knex('answers').where({ id }).first();
+    const answer = await db("answers").where("id", req.params.id).first();
     if (!answer) {
-      res.status(404).json({ message: 'Answer not found' });
+      res.status(404).json({ message: "Answer not found" });
       return;
     }
     res.json(answer);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error fetching answer' });
+    res.status(500).json({ message: "Error fetching answer" });
   }
 });
 
@@ -217,18 +222,28 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
  *       500:
  *         description: Error fetching answers for question
  */
-router.get('/questions/:questionId/answers', async (req: Request, res: Response) => {
-  try {
-    const { questionId } = req.params;
-    const answers = await knex('answers')
-      .select('id', 'question_id', 'answer_text', 'is_correct', 'created_at', 'updated_at')
-      .where({ question_id: questionId });
-    res.json(answers);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error fetching answers for question' });
-  }
-});
+router.get(
+  "/questions/:questionId/answers",
+  async (req: Request, res: Response) => {
+    try {
+      const { questionId } = req.params;
+      const answers = await db("answers")
+        .select(
+          "id",
+          "question_id",
+          "answer_text",
+          "is_correct",
+          "created_at",
+          "updated_at",
+        )
+        .where({ question_id: questionId });
+      res.json(answers);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching answers for question" });
+    }
+  },
+);
 
 /**
  * @swagger
@@ -242,7 +257,6 @@ router.get('/questions/:questionId/answers', async (req: Request, res: Response)
  *         required: true
  *         schema:
  *           type: integer
- *         description: Answer ID
  *     requestBody:
  *       required: true
  *       content:
@@ -252,13 +266,10 @@ router.get('/questions/:questionId/answers', async (req: Request, res: Response)
  *             properties:
  *               question_id:
  *                 type: integer
- *                 description: ID of the question this answer belongs to
  *               answer_text:
  *                 type: string
- *                 description: The text content of the answer
  *               is_correct:
  *                 type: boolean
- *                 description: Whether this answer is correct
  *     responses:
  *       200:
  *         description: Answer updated successfully
@@ -286,23 +297,30 @@ router.get('/questions/:questionId/answers', async (req: Request, res: Response)
  *       500:
  *         description: Error updating answer
  */
-router.put('/:id', async (req: Request, res: Response): Promise<void> => {
+router.put("/:id", async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
     const { question_id, answer_text, is_correct } = req.body;
-    const existingAnswer = await knex('answers').where({ id }).first();
-    if (!existingAnswer) {
-      res.status(404).json({ message: 'Answer not found' });
+    const [updatedAnswer] = await db("answers")
+      .where("id", req.params.id)
+      .update({ question_id, answer_text, is_correct, updated_at: db.fn.now() })
+      .returning([
+        "id",
+        "question_id",
+        "answer_text",
+        "is_correct",
+        "created_at",
+        "updated_at",
+      ]);
+
+    if (!updatedAnswer) {
+      res.status(404).json({ message: "Answer not found" });
       return;
     }
-    const [updatedAnswer] = await knex('answers')
-      .where({ id })
-      .update({ question_id, answer_text, is_correct })
-      .returning(['id', 'question_id', 'answer_text', 'is_correct', 'created_at', 'updated_at']);
+
     res.json(updatedAnswer);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error updating answer' });
+    res.status(500).json({ message: "Error updating answer" });
   }
 });
 
@@ -318,36 +336,25 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
  *         required: true
  *         schema:
  *           type: integer
- *         description: Answer ID
  *     responses:
- *       200:
+ *       204:
  *         description: Answer deleted successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: Answer deleted successfully
  *       404:
  *         description: Answer not found
  *       500:
  *         description: Error deleting answer
  */
-router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
+router.delete("/:id", async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const existingAnswer = await knex('answers').where({ id }).first();
-    if (!existingAnswer) {
-      res.status(404).json({ message: 'Answer not found' });
+    const deleted = await db("answers").where("id", req.params.id).del();
+    if (!deleted) {
+      res.status(404).json({ message: "Answer not found" });
       return;
     }
-    await knex('answers').where({ id }).del();
-    res.json({ message: 'Answer deleted successfully' });
+    res.status(204).send();
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error deleting answer' });
+    res.status(500).json({ message: "Error deleting answer" });
   }
 });
 

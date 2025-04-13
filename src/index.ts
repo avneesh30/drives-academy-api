@@ -1,51 +1,82 @@
-import express from 'express';
-import swaggerUi from 'swagger-ui-express';
-import swaggerJsdoc from 'swagger-jsdoc';
-import usersRoute from './routes/users';
-import quizzesRoute from './routes/quizzes';
-import questionsRoute from './routes/questions';
-import answersRoute from './routes/answers';
-import userQuizResultsRoute from './routes/userQuizResults';
-import drivingLessonsRoute from './routes/drivingLessons';
-import lessonContentsRoute from './routes/lessonContents';
-import videoTutorialsRoute from './routes/videoTutorials';
-import rulesRoutes from './routes/rules';
+import express from "express";
+import cors from "cors";
+import swaggerUi from "swagger-ui-express";
+import swaggerJsdoc from "swagger-jsdoc";
+import { errorHandler } from "./middleware/errorHandler";
+import usersRouter from "./routes/users";
+import quizzesRouter from "./routes/quizzes";
+import questionsRouter from "./routes/questions";
+import answersRouter from "./routes/answers";
+import userQuizResultsRouter from "./routes/userQuizResults";
+import videoTutorialsRouter from "./routes/videoTutorials";
+import drivingLessonsRouter from "./routes/drivingLessons";
+import lessonContentsRouter from "./routes/lessonContents";
+import rulesCategoriesRouter from "./routes/rulesCategories";
+import rulesContentRouter from "./routes/rulesContent";
+import roadRulesCategoriesRouter from "./routes/roadRulesCategories";
 
 const app = express();
+
+// Middleware
+app.use(cors());
+app.use(express.json());
 
 // Swagger configuration
 const swaggerOptions = {
   definition: {
-    openapi: '3.0.0',
+    openapi: "3.0.0",
     info: {
-      title: 'Drives Academy API',
-      version: '1.0.0',
-      description: 'API documentation for Drives Academy application',
+      title: "Drives Academy API",
+      version: "1.0.0",
+      description: "API documentation for Drives Academy",
     },
     servers: [
       {
-        url: `http://localhost:3001`,
-        description: 'Development server',
+        url: "http://localhost:3000",
+        description: "Development server",
       },
     ],
     components: {
       securitySchemes: {
         bearerAuth: {
-          type: 'http',
-          scheme: 'bearer',
-          bearerFormat: 'JWT',
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
         },
       },
     },
+    security: [
+      {
+        bearerAuth: [],
+      },
+    ],
   },
-  apis: ['./src/routes/*.ts', './src/index.ts'], // Path to the API docs
+  apis: ["./src/routes/*.ts"], // Path to the API routes
 };
 
-const swaggerDocs = swaggerJsdoc(swaggerOptions);
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
+const swaggerSpec = swaggerJsdoc(swaggerOptions);
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// Middleware
-app.use(express.json());
+// Routes
+app.use("/api/users", usersRouter);
+app.use("/api/quizzes", quizzesRouter);
+app.use("/api/questions", questionsRouter);
+app.use("/api/answers", answersRouter);
+app.use("/api/user-quiz-results", userQuizResultsRouter);
+app.use("/api/video-tutorials", videoTutorialsRouter);
+app.use("/api/driving-lessons", drivingLessonsRouter);
+app.use("/api/lesson-contents", lessonContentsRouter);
+app.use("/api/rules-categories", rulesCategoriesRouter);
+app.use("/api/rules-content", rulesContentRouter);
+app.use("/api/road-rules-categories", roadRulesCategoriesRouter);
+
+// Error handling middleware
+app.use(errorHandler);
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
 
 /**
  * @swagger
@@ -644,21 +675,6 @@ app.use(express.json());
  *         description: Error creating answer
  */
 
-app.use('/users', usersRoute);
-app.use('/quizzes', quizzesRoute);
-app.use('/questions', questionsRoute);
-app.use('/answers', answersRoute);
-app.use('/user-quiz-results', userQuizResultsRoute);
-app.use('/driving-lessons', drivingLessonsRoute);
-app.use('/lesson-contents', lessonContentsRoute);
-app.use('/video-tutorials', videoTutorialsRoute);
-app.use('/api/rules', rulesRoutes);
-
-const port = parseInt(process.env.PORT || '3001');
-app.listen(port, () => {
-  console.log(`listening on port ${port}`);
-});
-
 /**
  * @swagger
  * /api/rules/categories:
@@ -918,4 +934,3 @@ app.listen(port, () => {
  *       500:
  *         description: Error fetching rules content
  */
-

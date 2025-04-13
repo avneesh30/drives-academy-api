@@ -1,5 +1,5 @@
-import express, { Request, Response, Router } from 'express';
-import knex from '../db';
+import express, { Request, Response, Router } from "express";
+import { db } from "../db";
 
 const router: Router = express.Router();
 
@@ -117,77 +117,99 @@ const router: Router = express.Router();
  *         description: Error deleting video tutorial
  */
 
-router.post('/', async (req: Request, res: Response): Promise<void> => {
+router.post("/", async (req: Request, res: Response): Promise<void> => {
   try {
     const { title, description, video_url, duration, thumbnail_url } = req.body;
-    const [newVideoTutorial] = await knex('video_tutorials')
+    const [newVideoTutorial] = await db("video_tutorials")
       .insert({ title, description, video_url, duration, thumbnail_url })
-      .returning(['id', 'title', 'description', 'video_url', 'duration', 'thumbnail_url', 'created_at', 'updated_at']);
+      .returning([
+        "id",
+        "title",
+        "description",
+        "video_url",
+        "duration",
+        "thumbnail_url",
+        "created_at",
+        "updated_at",
+      ]);
     res.status(201).json(newVideoTutorial);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error creating video tutorial' });
+    res.status(500).json({ message: "Error creating video tutorial" });
   }
 });
 
-router.get('/', async (req: Request, res: Response): Promise<void> => {
+router.get("/", async (req: Request, res: Response): Promise<void> => {
   try {
-    const videoTutorials = await knex('video_tutorials').select('*');
+    const videoTutorials = await db("video_tutorials").select("*");
     res.json(videoTutorials);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error fetching video tutorials' });
+    res.status(500).json({ message: "Error fetching video tutorials" });
   }
 });
 
-router.get('/:id', async (req: Request, res: Response): Promise<void> => {
+router.get("/:id", async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const videoTutorial = await knex('video_tutorials').where({ id }).first();
+    const videoTutorial = await db("video_tutorials").where({ id }).first();
     if (!videoTutorial) {
-      res.status(404).json({ message: 'Video tutorial not found' });
+      res.status(404).json({ message: "Video tutorial not found" });
       return;
     }
     res.json(videoTutorial);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error fetching video tutorial' });
+    res.status(500).json({ message: "Error fetching video tutorial" });
   }
 });
 
-router.put('/:id', async (req: Request, res: Response): Promise<void> => {
+router.put("/:id", async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const { title, description, video_url, duration, thumbnail_url } = req.body;
-    const existingVideoTutorial = await knex('video_tutorials').where({ id }).first();
+    const existingVideoTutorial = await db("video_tutorials")
+      .where({ id })
+      .first();
     if (!existingVideoTutorial) {
-      res.status(404).json({ message: 'Video tutorial not found' });
+      res.status(404).json({ message: "Video tutorial not found" });
       return;
     }
-    const [updatedVideoTutorial] = await knex('video_tutorials')
+    const [updatedVideoTutorial] = await db("video_tutorials")
       .where({ id })
       .update({ title, description, video_url, duration, thumbnail_url })
-      .returning(['id', 'title', 'description', 'video_url', 'duration', 'thumbnail_url', 'created_at', 'updated_at']);
+      .returning([
+        "id",
+        "title",
+        "description",
+        "video_url",
+        "duration",
+        "thumbnail_url",
+        "created_at",
+        "updated_at",
+      ]);
     res.json(updatedVideoTutorial);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error updating video tutorial' });
+    res.status(500).json({ message: "Error updating video tutorial" });
   }
 });
 
-router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
+router.delete("/:id", async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const existingVideoTutorial = await knex('video_tutorials').where({ id }).first();
+    const existingVideoTutorial = await db("video_tutorials")
+      .where({ id })
+      .first();
     if (!existingVideoTutorial) {
-      res.status(404).json({ message: 'Video tutorial not found' });
+      res.status(404).json({ message: "Video tutorial not found" });
       return;
     }
-    await knex('video_tutorials').where({ id }).del();
-    res.json({ message: 'Video tutorial deleted successfully' });
+    await db("video_tutorials").where({ id }).del();
+    res.json({ message: "Video tutorial deleted successfully" });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error deleting video tutorial' });
+    res.status(500).json({ message: "Error deleting video tutorial" });
   }
 });
 

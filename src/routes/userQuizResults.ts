@@ -1,11 +1,31 @@
-import express, { Request, Response, Router, RequestHandler } from 'express';
-import knex from '../db';
+import express, { Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth';
+import { db } from '../db';
+import { z } from 'zod';
 
-const router: Router = express.Router();
+const router = express.Router();
 
-// All routes require authentication
+// Apply authentication middleware to all routes
 router.use(authenticateToken);
+
+// Validation schemas
+const createUserQuizResultSchema = z.object({
+  userId: z.number(),
+  quizId: z.number(),
+  score: z.number(),
+  totalQuestions: z.number(),
+  correctAnswers: z.number(),
+  timeTaken: z.number(),
+  answers: z.array(
+    z.object({
+      questionId: z.number(),
+      selectedAnswerId: z.number(),
+      isCorrect: z.boolean(),
+    }),
+  ),
+});
+
+const updateUserQuizResultSchema = createUserQuizResultSchema.partial();
 
 /**
  * @swagger
@@ -69,49 +89,36 @@ router.use(authenticateToken);
  *       500:
  *         description: Server error
  */
-router.post('/', (async (req: Request, res: Response): Promise<void> => {
+router.post('/', async (req: Request, res: Response) => {
   try {
-    const {
-      user_id,
-      quiz_id,
-      score,
-      total_points,
-      correct_answer_count,
-      incorrect_answer_count,
-      time_taken_seconds,
-      is_passed,
-      question_answers,
-      started_at,
-      completed_at
-    } = req.body;
-
-    if (!user_id || !quiz_id || !score || !correct_answer_count || !incorrect_answer_count || !started_at || !completed_at) {
-      res.status(400).json({ message: 'Missing required fields' });
-      return;
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    const [result] = await knex('user_quiz_results')
+    const validatedData = createUserQuizResultSchema.parse(req.body);
+
+    // Ensure the user can only create results for themselves
+    if (validatedData.userId !== userId) {
+      return res.status(403).json({ error: 'Cannot create quiz result for another user' });
+    }
+
+    const [result] = await db('userQuizResults')
       .insert({
-        user_id,
-        quiz_id,
-        score,
-        total_points,
-        correct_answer_count,
-        incorrect_answer_count,
-        time_taken_seconds,
-        is_passed,
-        question_answers: JSON.stringify(question_answers || []),
-        started_at,
-        completed_at
+        ...validatedData,
+        userId,
       })
       .returning('*');
 
     res.status(201).json(result);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error creating quiz result' });
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.errors });
+    }
+    console.error('Error creating quiz result:', error);
+    res.status(500).json({ error: 'Failed to create quiz result' });
   }
-}) as RequestHandler);
+});
 
 /**
  * @swagger
@@ -141,28 +148,20 @@ router.post('/', (async (req: Request, res: Response): Promise<void> => {
  *       500:
  *         description: Server error
  */
-router.get('/', (async (req: Request, res: Response): Promise<void> => {
+router.get('/', async (req: Request, res: Response) => {
   try {
-    const { user_id, quiz_id, is_passed } = req.query;
-    let query = knex('user_quiz_results').select('*');
-
-    if (user_id) {
-      query = query.where('user_id', user_id);
-    }
-    if (quiz_id) {
-      query = query.where('quiz_id', quiz_id);
-    }
-    if (is_passed !== undefined) {
-      query = query.where('is_passed', is_passed === 'true');
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    const results = await query;
+    const results = await db('userQuizResults').where('userId', userId).select('*');
     res.json(results);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error fetching quiz results' });
+    console.error('Error fetching quiz results:', error);
+    res.status(500).json({ error: 'Failed to fetch quiz results' });
   }
-}) as RequestHandler);
+});
 
 /**
  * @swagger
@@ -184,22 +183,25 @@ router.get('/', (async (req: Request, res: Response): Promise<void> => {
  *       500:
  *         description: Server error
  */
-router.get('/:id', (async (req: Request, res: Response): Promise<void> => {
+router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const result = await knex('user_quiz_results').where({ id }).first();
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const result = await db('userQuizResults').where({ id: req.params.id, userId }).first();
 
     if (!result) {
-      res.status(404).json({ message: 'Quiz result not found' });
-      return;
+      return res.status(404).json({ error: 'Quiz result not found' });
     }
 
     res.json(result);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error fetching quiz result' });
+    console.error('Error fetching quiz result:', error);
+    res.status(500).json({ error: 'Failed to fetch quiz result' });
   }
-}) as RequestHandler);
+});
 
 /**
  * @swagger
@@ -254,53 +256,33 @@ router.get('/:id', (async (req: Request, res: Response): Promise<void> => {
  *       500:
  *         description: Server error
  */
-router.put('/:id', (async (req: Request, res: Response): Promise<void> => {
+router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const {
-      user_id,
-      quiz_id,
-      score,
-      total_points,
-      correct_answer_count,
-      incorrect_answer_count,
-      time_taken_seconds,
-      is_passed,
-      question_answers,
-      started_at,
-      completed_at
-    } = req.body;
-
-    const existingResult = await knex('user_quiz_results').where({ id }).first();
-    if (!existingResult) {
-      res.status(404).json({ message: 'Quiz result not found' });
-      return;
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    const [updatedResult] = await knex('user_quiz_results')
-      .where({ id })
-      .update({
-        user_id,
-        quiz_id,
-        score,
-        total_points,
-        correct_answer_count,
-        incorrect_answer_count,
-        time_taken_seconds,
-        is_passed,
-        question_answers: JSON.stringify(question_answers || []),
-        started_at,
-        completed_at,
-        updated_at: knex.fn.now()
-      })
+    const validatedData = updateUserQuizResultSchema.parse(req.body);
+
+    const [result] = await db('userQuizResults')
+      .where({ id: req.params.id, userId })
+      .update(validatedData)
       .returning('*');
 
-    res.json(updatedResult);
+    if (!result) {
+      return res.status(404).json({ error: 'Quiz result not found' });
+    }
+
+    res.json(result);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error updating quiz result' });
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.errors });
+    }
+    console.error('Error updating quiz result:', error);
+    res.status(500).json({ error: 'Failed to update quiz result' });
   }
-}) as RequestHandler);
+});
 
 /**
  * @swagger
@@ -322,22 +304,24 @@ router.put('/:id', (async (req: Request, res: Response): Promise<void> => {
  *       500:
  *         description: Server error
  */
-router.delete('/:id', (async (req: Request, res: Response): Promise<void> => {
+router.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const existingResult = await knex('user_quiz_results').where({ id }).first();
-
-    if (!existingResult) {
-      res.status(404).json({ message: 'Quiz result not found' });
-      return;
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    await knex('user_quiz_results').where({ id }).del();
-    res.json({ message: 'Quiz result deleted successfully' });
+    const result = await db('userQuizResults').where({ id: req.params.id, userId }).del();
+
+    if (!result) {
+      return res.status(404).json({ error: 'Quiz result not found' });
+    }
+
+    res.status(204).send();
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error deleting quiz result' });
+    console.error('Error deleting quiz result:', error);
+    res.status(500).json({ error: 'Failed to delete quiz result' });
   }
-}) as RequestHandler);
+});
 
 export default router;

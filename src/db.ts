@@ -1,10 +1,18 @@
 import knex from 'knex';
-import config from '../knexfile';
-import path from 'path';
+import { config } from './config';
 
-const environment = process.env.NODE_ENV || 'development';
-const knexConfig = config[environment];
+const db = knex({
+  client: 'pg',
+  connection: {
+    host: config.db.host,
+    port: config.db.port,
+    user: config.db.user,
+    password: config.db.password,
+    database: config.db.database,
+  },
+  migrations: {
+    directory: './migrations',
+  },
+});
 
-const db = knex(knexConfig);
-
-export default db;
+export { db };

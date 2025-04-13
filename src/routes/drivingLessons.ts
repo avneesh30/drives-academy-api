@@ -1,7 +1,7 @@
 // src/routes/drivingLessons.ts
-import express, { Request, Response, Router } from 'express';
-import knex from '../db';
-import { authenticateToken } from '../middleware/auth';
+import express, { Request, Response, Router } from "express";
+import { db } from "../db";
+import { authenticateToken } from "../middleware/auth";
 
 const router: Router = express.Router();
 
@@ -64,16 +64,24 @@ router.use(authenticateToken);
  *       500:
  *         description: Error creating driving lesson
  */
-router.post('/', async (req: Request, res: Response): Promise<void> => {
+router.post("/", async (req: Request, res: Response): Promise<void> => {
   try {
     const { title, description, duration, is_locked } = req.body;
-    const [newDrivingLesson] = await knex('driving_lessons')
+    const [newDrivingLesson] = await db("driving_lessons")
       .insert({ title, description, duration, is_locked })
-      .returning(['id', 'title', 'description', 'duration', 'is_locked', 'created_at', 'updated_at']);
+      .returning([
+        "id",
+        "title",
+        "description",
+        "duration",
+        "is_locked",
+        "created_at",
+        "updated_at",
+      ]);
     res.status(201).json(newDrivingLesson);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error creating driving lesson' });
+    res.status(500).json({ message: "Error creating driving lesson" });
   }
 });
 
@@ -112,13 +120,21 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
  *       500:
  *         description: Error fetching driving lessons
  */
-router.get('/', async (req: Request, res: Response): Promise<void> => {
+router.get("/", async (req: Request, res: Response): Promise<void> => {
   try {
-    const drivingLessons = await knex('driving_lessons').select('id', 'title', 'description', 'duration', 'is_locked', 'created_at', 'updated_at');
+    const drivingLessons = await db("driving_lessons").select(
+      "id",
+      "title",
+      "description",
+      "duration",
+      "is_locked",
+      "created_at",
+      "updated_at",
+    );
     res.json(drivingLessons);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error fetching driving lessons' });
+    res.status(500).json({ message: "Error fetching driving lessons" });
   }
 });
 
@@ -164,21 +180,29 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
  *       500:
  *         description: Error fetching driving lesson
  */
-router.get('/:id', async (req: Request, res: Response): Promise<void> => {
+router.get("/:id", async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const drivingLesson = await knex('driving_lessons')
-      .select('id', 'title', 'description', 'duration', 'is_locked', 'created_at', 'updated_at')
+    const drivingLesson = await db("driving_lessons")
+      .select(
+        "id",
+        "title",
+        "description",
+        "duration",
+        "is_locked",
+        "created_at",
+        "updated_at",
+      )
       .where({ id })
       .first();
     if (!drivingLesson) {
-      res.status(404).json({ message: 'Driving lesson not found' });
+      res.status(404).json({ message: "Driving lesson not found" });
       return;
     }
     res.json(drivingLesson);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error fetching driving lesson' });
+    res.status(500).json({ message: "Error fetching driving lesson" });
   }
 });
 
@@ -243,23 +267,33 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
  *       500:
  *         description: Error updating driving lesson
  */
-router.put('/:id', async (req: Request, res: Response): Promise<void> => {
+router.put("/:id", async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const { title, description, duration, is_locked } = req.body;
-    const existingDrivingLesson = await knex('driving_lessons').where({ id }).first();
+    const existingDrivingLesson = await db("driving_lessons")
+      .where({ id })
+      .first();
     if (!existingDrivingLesson) {
-      res.status(404).json({ message: 'Driving lesson not found' });
+      res.status(404).json({ message: "Driving lesson not found" });
       return;
     }
-    const [updatedDrivingLesson] = await knex('driving_lessons')
+    const [updatedDrivingLesson] = await db("driving_lessons")
       .where({ id })
       .update({ title, description, duration, is_locked })
-      .returning(['id', 'title', 'description', 'duration', 'is_locked', 'created_at', 'updated_at']);
+      .returning([
+        "id",
+        "title",
+        "description",
+        "duration",
+        "is_locked",
+        "created_at",
+        "updated_at",
+      ]);
     res.json(updatedDrivingLesson);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error updating driving lesson' });
+    res.status(500).json({ message: "Error updating driving lesson" });
   }
 });
 
@@ -292,19 +326,21 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
  *       500:
  *         description: Error deleting driving lesson
  */
-router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
+router.delete("/:id", async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const existingDrivingLesson = await knex('driving_lessons').where({ id }).first();
+    const existingDrivingLesson = await db("driving_lessons")
+      .where({ id })
+      .first();
     if (!existingDrivingLesson) {
-      res.status(404).json({ message: 'Driving lesson not found' });
+      res.status(404).json({ message: "Driving lesson not found" });
       return;
     }
-    await knex('driving_lessons').where({ id }).del();
-    res.json({ message: 'Driving lesson deleted successfully' });
+    await db("driving_lessons").where({ id }).del();
+    res.json({ message: "Driving lesson deleted successfully" });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error deleting driving lesson' });
+    res.status(500).json({ message: "Error deleting driving lesson" });
   }
 });
 
